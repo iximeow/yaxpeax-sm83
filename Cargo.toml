@@ -1,15 +1,16 @@
 [package]
 
 name = "yaxpeax-sm83"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "iximeow <me@iximeow.net>" ]
 license = "0BSD"
 repository = "http://git.iximeow.net/yaxpeax-sm83/"
 description = "sm83 decoder for the yaxpeax project"
 keywords = ["diassembler", "gameboy", "gbc", "sm83", "lr35902"]
+edition = "2018"
 
 [dependencies]
-yaxpeax-arch = { version = "0.0.4", default-features = false, features = [] }
+yaxpeax-arch = { version = "0.2.3", default-features = false, features = [] }
 "serde" = { version = "1.0", optional = true }
 "serde_derive" = { version = "1.0", optional = true }
 "num_enum" = { version = "0.2", default-features = false }

@@ -1,10 +1,3 @@
-#[cfg(feature="use-serde")]
-#[macro_use] extern crate serde_derive;
-#[cfg(feature="use-serde")]
-extern crate serde;
-
-extern crate yaxpeax_arch;
-
 extern crate core;
 
 use core::fmt;
@@ -13,19 +6,18 @@ use yaxpeax_arch::AddressDiff;
 use yaxpeax_arch::Arch;
 use yaxpeax_arch::Decoder;
 use yaxpeax_arch::LengthedInstruction;
+use yaxpeax_arch::Reader;
+use yaxpeax_arch::StandardDecodeError;
 
-#[cfg(feature="use-serde")]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SM83;
-
-#[cfg(not(feature="use-serde"))]
+#[cfg_attr(feature="use-serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct SM83;
 
 impl Arch for SM83 {
     type Address = u16;
+    type Word = u8;
     type Instruction = Instruction;
-    type DecodeError = DecodeError;
+    type DecodeError = StandardDecodeError;
     type Decoder = InstDecoder;
     type Operand = Operand;
 }
@@ -82,29 +74,6 @@ impl LengthedInstruction for Instruction {
     }
     fn len(&self) -> Self::Unit {
         AddressDiff::from_const(self.length as u16)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DecodeError {
-    ExhaustedInput,
-    InvalidOpcode,
-    Incomplete,
-}
-
-impl yaxpeax_arch::DecodeError for DecodeError {
-    fn data_exhausted(&self) -> bool { self == &DecodeError::ExhaustedInput }
-    fn bad_opcode(&self) -> bool { self == &DecodeError::InvalidOpcode }
-    fn bad_operand(&self) -> bool { false }
-}
-
-impl fmt::Display for DecodeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            DecodeError::ExhaustedInput => { write!(f, "exhausted input") }
-            DecodeError::InvalidOpcode => { write!(f, "invalid opcode") }
-            DecodeError::Incomplete => { write!(f, "incomplete") }
-        }
     }
 }
 
@@ -470,13 +439,9 @@ const UPPER_INSTRUCTIONS: [(Option<Opcode>, [OperandSpec; 2]); 64] = [
     (Some(Opcode::RST), [OperandSpec::Imm(0x38), OperandSpec::Nothing]),
 ];
 
-impl Decoder<Instruction> for InstDecoder {
-    type Error = DecodeError;
-
-    fn decode_into<T: IntoIterator<Item=u8>>(&self, inst: &mut Instruction, bytes: T) -> Result<(), Self::Error> {
-        let mut iter = bytes.into_iter();
-
-        let opc: u8 = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+impl Decoder<SM83> for InstDecoder {
+    fn decode_into<T: Reader<<SM83 as Arch>::Address, <SM83 as Arch>::Word>>(&self, inst: &mut Instruction, words: &mut T) -> Result<(), <SM83 as Arch>::DecodeError> {
+        let opc: u8 = words.next()?;
         inst.length = 1;
 
         let high = ((opc >> 3) & 0b111) as usize;
@@ -621,7 +586,7 @@ impl Decoder<Instruction> for InstDecoder {
                 }
             };
             inst.opcode = opcode;
-            interpret_operands(iter, inst, operands)?;
+            interpret_operands(words, inst, operands)?;
             return Ok(());
         } else if opc < 0x80 {
             if opc == 0x76 {
@@ -630,7 +595,7 @@ impl Decoder<Instruction> for InstDecoder {
                 return Ok(());
             } else {
                 inst.opcode = Opcode::LD;
-                interpret_operands(iter, inst, [OPMAP[high], OPMAP[low]])?;
+                interpret_operands(words, inst, [OPMAP[high], OPMAP[low]])?;
                 return Ok(());
             }
         } else if opc < 0xc0 {
@@ -646,12 +611,12 @@ impl Decoder<Instruction> for InstDecoder {
             ];
             inst.opcode = OPCODES[high];
             let operands = [OPMAP[low], OperandSpec::Nothing];
-            interpret_operands(iter, inst, operands)?;
+            interpret_operands(words, inst, operands)?;
             return Ok(());
         } else {
             if opc == 0xcb {
                 // sm83 special CB-prefixed instructions
-                let opc: u8 = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+                let opc: u8 = words.next()?;
                 inst.length += 1;
                 if opc < 0x40 {
                     let high = (opc >> 3) & 0b111;
@@ -678,7 +643,7 @@ impl Decoder<Instruction> for InstDecoder {
                         Opcode::SRL,
                     ];
                     inst.opcode = OPCODES[high as usize];
-                    interpret_operands(iter, inst, operands)?;
+                    interpret_operands(words, inst, operands)?;
                     return Ok(());
                 } else {
                     let bit = (opc >> 3) & 0b111;
@@ -700,7 +665,7 @@ impl Decoder<Instruction> for InstDecoder {
                         Opcode::SET,
                     ];
                     inst.opcode = OPCODES[(opc >> 6) as usize - 1];
-                    interpret_operands(iter, inst, operands)?;
+                    interpret_operands(words, inst, operands)?;
                     return Ok(());
                 }
             } else {
@@ -708,23 +673,23 @@ impl Decoder<Instruction> for InstDecoder {
                 let (maybe_opcode, operands) = UPPER_INSTRUCTIONS[opc as usize - 0xc0];
                 if let Some(opcode) = maybe_opcode {
                     inst.opcode = opcode;
-                    interpret_operands(iter, inst, operands)?;
+                    interpret_operands(words, inst, operands)?;
                     return Ok(());
                 } else {
-                    return Err(DecodeError::InvalidOpcode);
+                    return Err(StandardDecodeError::InvalidOpcode);
                 }
             }
         }
     }
 }
 
-fn interpret_operands<I: Iterator<Item=u8>>(mut iter: I, inst: &mut Instruction, operands: [OperandSpec; 2]) -> Result<(), DecodeError> {
-    inst.operands[0] = interpret_operand(&mut iter, inst, operands[0])?;
-    inst.operands[1] = interpret_operand(&mut iter, inst, operands[1])?;
+fn interpret_operands<T: Reader<<SM83 as Arch>::Address, <SM83 as Arch>::Word>>(words: &mut T, inst: &mut Instruction, operands: [OperandSpec; 2]) -> Result<(), <SM83 as Arch>::DecodeError> {
+    inst.operands[0] = interpret_operand(words, inst, operands[0])?;
+    inst.operands[1] = interpret_operand(words, inst, operands[1])?;
     Ok(())
 }
 
-fn interpret_operand<I: Iterator<Item=u8>>(iter: &mut I, inst: &mut Instruction, operand: OperandSpec) -> Result<Operand, DecodeError> {
+fn interpret_operand<T: Reader<<SM83 as Arch>::Address, <SM83 as Arch>::Word>>(words: &mut T, inst: &mut Instruction, operand: OperandSpec) -> Result<Operand, <SM83 as Arch>::DecodeError> {
     let operand = match operand {
         OperandSpec::A => Operand::A,
         OperandSpec::B => Operand::B,
@@ -744,7 +709,7 @@ fn interpret_operand<I: Iterator<Item=u8>>(iter: &mut I, inst: &mut Instruction,
         OperandSpec::DerefDecHL => Operand::DerefDecHL,
         OperandSpec::DerefIncHL => Operand::DerefIncHL,
         OperandSpec::D8 => {
-            let imm = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+            let imm = words.next()?;
             inst.length += 1;
             Operand::D8(imm)
         }
@@ -752,36 +717,36 @@ fn interpret_operand<I: Iterator<Item=u8>>(iter: &mut I, inst: &mut Instruction,
             Operand::DerefHighC
         }
         OperandSpec::DerefHighD8 => {
-            let imm = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+            let imm = words.next()?;
             inst.length += 1;
             Operand::DerefHighD8(imm)
         }
         OperandSpec::R8 => {
-            let imm = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+            let imm = words.next()?;
             inst.length += 1;
             Operand::R8(imm as i8)
         }
         OperandSpec::I8 => {
-            let imm = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+            let imm = words.next()?;
             inst.length += 1;
             Operand::I8(imm as i8)
         }
         OperandSpec::A16 => {
             let imm =
-                 (iter.next().ok_or(DecodeError::ExhaustedInput)? as u16) |
-                ((iter.next().ok_or(DecodeError::ExhaustedInput)? as u16) << 8);
+                 (words.next()? as u16) |
+                ((words.next()? as u16) << 8);
             inst.length += 2;
             Operand::A16(imm as u16)
         }
         OperandSpec::D16 => {
             let imm =
-                 (iter.next().ok_or(DecodeError::ExhaustedInput)? as u16) |
-                ((iter.next().ok_or(DecodeError::ExhaustedInput)? as u16) << 8);
+                 (words.next()? as u16) |
+                ((words.next()? as u16) << 8);
             inst.length += 2;
             Operand::D16(imm as u16)
         }
         OperandSpec::SPWithOffset => {
-            let imm = iter.next().ok_or(DecodeError::ExhaustedInput)?;
+            let imm = words.next()?;
             inst.length += 1;
             Operand::SPWithOffset(imm as i8)
         }

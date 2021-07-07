@@ -1,2 +1,7 @@
+## 0.2.0
+
+* update yaxpeax-arch to 0.2.3, fix API changes
+* update crate to rust 2018
+
 ## 0.1.0
 * wrote a decoder
