@@ -7,7 +7,7 @@ license = "0BSD"
 repository = "http://git.iximeow.net/yaxpeax-sm83/"
 description = "sm83 decoder for the yaxpeax project"
 keywords = ["diassembler", "gameboy", "gbc", "sm83", "lr35902"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 yaxpeax-arch = { version = "0.2.3", default-features = false, features = [] }
@@ -23,3 +23,6 @@ path = "test/test.rs"
 default = []
 
 use-serde = []
+
+[profile.release]
+lto = "yes"

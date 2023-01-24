@@ -47,6 +47,19 @@ fn test_display_under(decoder: &InstDecoder, data: &[u8], expected: &'static str
     }
 }
 
+#[inline(never)]
+#[no_mangle]
+pub fn test_length_decode(decoder: &InstDecoder, data: &[u8], mut length: &mut u8) {
+    let mut reader = U8Reader::new(data);
+    yaxpeax_sm83::decode_inst(decoder, &mut length, &mut reader);
+}
+
+#[test]
+fn test_length_decode_works() {
+    // test_display(&[0xea, 0x34, 0x12], "ld [$1234], a");
+    test_length_decode(&InstDecoder::default(), &[0xea, 0x34, 0x12], &mut 0);
+}
+
 #[test]
 fn test_invalid_ops() {
     test_invalid(&[0xd3]);

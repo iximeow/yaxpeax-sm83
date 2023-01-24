@@ -1,3 +1,8 @@
+## unreleased
+
+* added `yaxpeax_sm83::decode_inst`, using the `DecodeHandler` API
+  - name pending, probably to change before release
+
 ## 0.2.0
 
 * update yaxpeax-arch to 0.2.3, fix API changes
