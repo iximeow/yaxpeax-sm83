@@ -940,7 +940,6 @@ impl<T: yaxpeax_arch::Reader<<SM83 as Arch>::Address, <SM83 as Arch>::Word>> Dec
     }
 }
 
-// #[inline(never)]
 pub fn decode_inst<
     T: Reader<<SM83 as Arch>::Address, <SM83 as Arch>::Word>,
     H: DecodeHandler<T>,

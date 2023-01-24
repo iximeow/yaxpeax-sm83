@@ -1,0 +1,36 @@
+if not Build.environment.has("rustup")
+then
+  Build.error("i don't know i want to handle dependencies yet")
+end
+
+Build.metric(
+  "nightly version",
+  "rustc --version"
+)
+
+Build.run({"cargo", "build"}, {step="build"}) -- `run` automatically records stdout and stderr to log files named after the command
+Build.run({"cargo", "test"}, {step="test", name="test stdlib/fmt"}) -- artifacts are stored under `name` if that's present
+
+Build.run({"cargo", "+nightly", "build", "-Z", "build-std", "--examples", "--release", "--no-default-features", "--target", "x86_64-unknown-linux-gnu"}, {step="benchmark (size)/build"})
+
+artifacts = "target/x86_64-unknown-linux-gnu/release/examples/"
+Build.run({"ls", artifacts.."liblength_decode.so"}, {step="ffi_validate"})
+baseline_size = Build.environment.size(artifacts.."libempty.so")
+-- baseline_disasm = Build.output({"objdump --disassemble=invalid artifacts..libempty.so"}).lines()
+-- length_disasm = Build.output({"objdump --disassemble=invalid artifacts..liblength_decode.so"}).lines()
+-- instr_disasm = Build.output({"objdump --disassemble=invalid artifacts..libinstr_decode.so"}).lines()
+-- Build.metric("length decode instruction count", length_disasm - baseline_disasm)
+-- Build.metric("instruction decode instruction count", instr_disasm - baseline_disasm)
+
+Build.metric(
+    "length decode size (bytes, upper bound)",
+    Build.environment.size(artifacts.."liblength_decode.so") - Build.environment.size(artifacts.."libempty.so")
+)
+
+Build.metric(
+    "inst decode size (bytes, upper bound)",
+    Build.environment.size(artifacts.."libinst_decode.so") - Build.environment.size(artifacts.."libempty.so")
+)
+
+Build.artifact(artifacts.."liblength_decode.so")
+Build.artifact(artifacts.."libinst_decode.so")

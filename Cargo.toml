@@ -26,3 +26,15 @@ use-serde = []
 
 [profile.release]
 lto = "yes"
+
+[[example]]
+name = "length_decode"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "inst_decode"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "empty"
+crate-type = ["cdylib"]
