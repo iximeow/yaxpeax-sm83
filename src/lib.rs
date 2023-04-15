@@ -143,11 +143,11 @@ impl fmt::Display for Operand {
             Operand::DerefHighD8(imm) => write!(f, "[$ff00 + ${:02x}]", imm),
             Operand::SPWithOffset(imm) => {
                 if *imm == -128 {
-                    write!(f, "[sp - $80]")
+                    write!(f, "sp - $80")
                 } else if *imm >= 0 {
-                    write!(f, "[sp + ${:02x}]", imm)
+                    write!(f, "sp + ${:02x}", imm)
                 } else {
-                    write!(f, "[sp - ${:02x}]", -imm)
+                    write!(f, "sp - ${:02x}", -imm)
                 }
             }
             Operand::Bit(imm) => write!(f, "{}", imm),
@@ -314,325 +314,6 @@ impl Default for InstDecoder {
 }
 
 pub trait DecodeHandler<T: Reader<<SM83 as Arch>::Address, <SM83 as Arch>::Word>> {
-//    type Error = <SM83 as Arch>::DecodeError;
-const UPPER_INSTRUCTIONS: [
-    fn(&mut Self, &mut T) -> Result<(), <SM83 as Arch>::DecodeError>; 64
-] = [
-    // 0xc0
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::RET)?;
-        handler.on_operand_decoded(0, Operand::CondNZ)?;
-        handler.on_ret_nz()
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::POP)?;
-        handler.on_operand_decoded(0, Operand::BC)?;
-        handler.on_pop_bc()
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::JP)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondNZ)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_jp_nz(addr)
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::JP)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::D16(addr))?;
-        handler.on_jp_unconditional(addr)
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::CALL)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondNZ)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_call_nz(addr)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::PUSH)?;
-        handler.on_operand_decoded(0, Operand::BC)?;
-        handler.on_push_bc()
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xc8
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::RET)?;
-        handler.on_operand_decoded(0, Operand::CondZ)?;
-        handler.on_ret_z()
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::RET)?;
-        handler.on_ret_unconditional()
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::JP)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondZ)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_jp_z(addr)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::CALL)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondZ)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_call_z(addr)
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::CALL)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::D16(addr))?;
-        handler.on_call_unconditional(addr)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xd0
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::RET)?;
-        handler.on_operand_decoded(0, Operand::CondNC)?;
-        handler.on_ret_nc()
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::POP)?;
-        handler.on_operand_decoded(0, Operand::DE)?;
-        handler.on_pop_de()
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::JP)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondNC)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_jp_nc(addr)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::CALL)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondNC)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_call_nc(addr)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::PUSH)?;
-        handler.on_operand_decoded(0, Operand::DE)?;
-        handler.on_push_de()
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xd8
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::RET)?;
-        handler.on_operand_decoded(0, Operand::CondC)?;
-        handler.on_ret_c()
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::RETI)?;
-        handler.on_reti()
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::JP)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondC)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_jp_c(addr)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::CALL)?;
-        let addr = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::CondC)?;
-        handler.on_operand_decoded(1, Operand::D16(addr))?;
-        handler.on_call_c(addr)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xe0
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::LDH)?;
-        let imm = handler.read_u8(reader)?;
-        handler.on_operand_decoded(0, Operand::DerefHighD8(imm))?;
-        handler.on_operand_decoded(1, Operand::A)?;
-        handler.on_ldh_deref_high_8b_a(imm)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::POP)?;
-        handler.on_operand_decoded(0, Operand::HL)?;
-        handler.on_pop_hl()
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::LDH)?;
-        handler.on_operand_decoded(0, Operand::DerefHighC)?;
-        handler.on_operand_decoded(1, Operand::A)?;
-        handler.on_ldh_deref_high_c_a()
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::PUSH)?;
-        handler.on_operand_decoded(0, Operand::HL)?;
-        handler.on_push_hl()
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xe8
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::ADD)?;
-        let imm = handler.read_u8(reader)? as i8;
-        handler.on_operand_decoded(0, Operand::SP)?;
-        handler.on_operand_decoded(1, Operand::I8(imm))?;
-        handler.on_add_sp_i8(imm)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::JP)?;
-        handler.on_operand_decoded(0, Operand::HL)?;
-        handler.on_jp_hl()
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::LD)?;
-        let imm = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::A16(imm))?;
-        handler.on_operand_decoded(1, Operand::A)?;
-        handler.on_ld_8b_deref_addr_a(imm)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xf0
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::LDH)?;
-        let imm = handler.read_u8(reader)?;
-        handler.on_operand_decoded(0, Operand::A)?;
-        handler.on_operand_decoded(1, Operand::DerefHighD8(imm))?;
-        handler.on_ldh_a_deref_high_8b(imm)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::POP)?;
-        handler.on_operand_decoded(0, Operand::AF)?;
-        handler.on_pop_af()
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::LDH)?;
-        handler.on_operand_decoded(0, Operand::A)?;
-        handler.on_ldh_a_deref_high_c() },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::DI)?;
-        handler.on_di()
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::PUSH)?;
-        handler.on_operand_decoded(0, Operand::AF)?;
-        handler.on_push_af()
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    // 0xf8
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::LD)?;
-        let imm = handler.read_u8(reader)? as i8;
-        handler.on_operand_decoded(0, Operand::HL)?;
-        handler.on_operand_decoded(1, Operand::SPWithOffset(imm))?;
-        handler.on_ld_hl_deref_sp_offset(imm)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::LD)?;
-        handler.on_operand_decoded(0, Operand::SP)?;
-        handler.on_operand_decoded(1, Operand::HL)?;
-        handler.on_ld_sp_hl()
-    },
-    |handler, reader| {
-        handler.on_opcode_decoded(Opcode::LD)?;
-        let imm = handler.read_u16(reader)?;
-        handler.on_operand_decoded(0, Operand::A)?;
-        handler.on_operand_decoded(1, Operand::A16(imm))?;
-        handler.on_ld_a_8b_deref_addr(imm)
-    },
-    |handler, _| {
-        handler.on_opcode_decoded(Opcode::EI)?;
-        handler.on_ei()
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-    |_, _| {
-        /* unreachable */
-        Err(StandardDecodeError::InvalidOpcode)
-    },
-];
-
     #[inline(always)]
     fn read_u8(&mut self, words: &mut T) -> Result<u8, <SM83 as Arch>::DecodeError> {
         let b = words.next()?;
@@ -660,10 +341,11 @@ const UPPER_INSTRUCTIONS: [
     fn on_ld_8b_a_mem(&mut self, _reg: DerefReg) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ld_a16_sp(&mut self, _addr: u16) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ld_rr_d16(&mut self, _op: Reg16b, _v: u16) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
+    fn on_ld_r_r(&mut self, _op: Reg8b, _op1: Reg8b) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ld_sp_hl(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ld_a_8b_deref_addr(&mut self, _addr: u16) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ld_8b_deref_addr_a(&mut self, _addr: u16) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
-    fn on_ld_hl_deref_sp_offset(&mut self, _ofs: i8) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
+    fn on_ld_hl_sp_offset(&mut self, _ofs: i8) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ldh_a_deref_high_8b(&mut self, _ofs: u8) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ldh_deref_high_8b_a(&mut self, _ofs: u8) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_ldh_deref_high_c_a(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
@@ -705,6 +387,7 @@ const UPPER_INSTRUCTIONS: [
     fn on_pop_hl(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_nop(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_stop(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
+    fn on_halt(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_rlca(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_rrca(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
     fn on_rla(&mut self) -> Result<(), <SM83 as Arch>::DecodeError> { Ok(()) }
@@ -1100,11 +783,15 @@ pub fn decode_inst<
     } else if opc < 0x80 {
         if opc == 0x76 {
             handler.on_opcode_decoded(Opcode::HALT)?;
+            handler.on_halt()?;
             return Ok(());
         } else {
+            let l = Reg8b::try_from(high).expect("bit pattern is possible");
+            let r = Reg8b::try_from(low).expect("bit pattern is possible");
             handler.on_opcode_decoded(Opcode::LD)?;
-            handler.on_operand_decoded(0, Reg8b::try_from(high).expect("bit pattern is possible").into())?;
-            handler.on_operand_decoded(1, Reg8b::try_from(low).expect("bit pattern is possible").into())?;
+            handler.on_operand_decoded(0, l.into())?;
+            handler.on_operand_decoded(1, r.into())?;
+            handler.on_ld_r_r(l, r)?;
             return Ok(());
         }
     } else if opc < 0xc0 {
@@ -1125,7 +812,72 @@ pub fn decode_inst<
         handler.on_operand_decoded(0, op0.into())?;
         return Ok(());
     } else {
-        if opc == 0xcb {
+        match opc {
+    // 0xc0
+    0xc0 => {
+        handler.on_opcode_decoded(Opcode::RET)?;
+        handler.on_operand_decoded(0, Operand::CondNZ)?;
+        handler.on_ret_nz()
+    },
+    0xc1 => {
+        handler.on_opcode_decoded(Opcode::POP)?;
+        handler.on_operand_decoded(0, Operand::BC)?;
+        handler.on_pop_bc()
+    },
+    0xc2 => {
+        handler.on_opcode_decoded(Opcode::JP)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondNZ)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_jp_nz(addr)
+    },
+    0xc3 => {
+        handler.on_opcode_decoded(Opcode::JP)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::D16(addr))?;
+        handler.on_jp_unconditional(addr)
+    },
+    0xc4 => {
+        handler.on_opcode_decoded(Opcode::CALL)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondNZ)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_call_nz(addr)
+    },
+    0xc5 => {
+        handler.on_opcode_decoded(Opcode::PUSH)?;
+        handler.on_operand_decoded(0, Operand::BC)?;
+        handler.on_push_bc()
+    },
+    0xc6 => {
+                    handler.on_opcode_decoded(Opcode::ADD)?;
+                    let imm = handler.read_u8(words)?;
+                    handler.on_operand_decoded(0, Operand::D8(imm))?;
+                    handler.on_op_8b_a_d8(Op8bAOp::ADD, imm)
+    },
+    0xc7 => {
+                    handler.on_opcode_decoded(Opcode::RST)?;
+                    handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+                    handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xc8
+    0xc8 => {
+        handler.on_opcode_decoded(Opcode::RET)?;
+        handler.on_operand_decoded(0, Operand::CondZ)?;
+        handler.on_ret_z()
+    },
+    0xc9 => {
+        handler.on_opcode_decoded(Opcode::RET)?;
+        handler.on_ret_unconditional()
+    },
+    0xca => {
+        handler.on_opcode_decoded(Opcode::JP)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondZ)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_jp_z(addr)
+    },
+    0xcb => {
             // sm83 special CB-prefixed instructions
             let opc: u8 = handler.read_u8(words)?;
             let opbits = opc & 0b11_000_000;
@@ -1144,19 +896,16 @@ pub fn decode_inst<
                     _ => { unreachable!("dce3") },
                 };
                 let op0 = Reg8b::try_from(low).expect("bit pattern is possible");
-                handler.on_rotate_8b_r(op, op0)?;
                 handler.on_opcode_decoded(op.into())?;
                 handler.on_operand_decoded(0, op0.into())?;
+                handler.on_rotate_8b_r(op, op0)?;
                 return Ok(());
             } else {
                 let bit = (opc >> 3) & 0b111;
                 let low = opc & 0b111;
-                let op = match opbits {
-                    0x40 => BitOp::BIT,
-                    0x80 => BitOp::RES,
-                    0xc0 => BitOp::SET,
-                    _ => { unreachable!("dce4") }
-                };
+                // safety: `opbits` is 0bXX_000_000 and known to be not 0, so it is 0x40, 0x80, or
+                // 0xc0. these are the same values as the BitOp enum variants.
+                let op: BitOp = unsafe { std::mem::transmute::<u8, BitOp>(opbits) };
                 handler.on_opcode_decoded(op.into())?;
                 let op1 = Reg8b::try_from(low).expect("bit pattern is possible");
                 handler.on_operand_decoded(0, Operand::Bit(bit))?;
@@ -1165,40 +914,280 @@ pub fn decode_inst<
                 handler.on_bit_op(op, bit, op1)?;
                 return Ok(());
             }
-        } else {
-            let opc_idx = opc - 0xc0;
-            // for opcodes matching 0b11_11x_000 we can follow some patterns. otherwise, there is
-            // no special thing we can do here. do a table lookup.
-            if opc_idx & 0b00_000_110 == 0b00_000_110 {
-                if opc_idx & 0b00_000_111 == 0b00_000_110 {
-                    // 0xc0, 0xc8, 0xd0, 0xd8, 0xe0, 0xe8, 0xf0, 0xf8
-                    // add/adc/sub/sbc/xor/and/or/cp a, d8
-                    let op = match high {
-                        0 => Op8bAOp::ADD,
-                        1 => Op8bAOp::ADC,
-                        2 => Op8bAOp::SUB,
-                        3 => Op8bAOp::SBC,
-                        4 => Op8bAOp::AND,
-                        5 => Op8bAOp::XOR,
-                        6 => Op8bAOp::OR,
-                        7 => Op8bAOp::CP,
-                        _ => { unreachable!("dce5") }
-                    };
-                    handler.on_opcode_decoded(op.into())?;
-                    let imm = handler.read_u8(words)?;
-                    handler.on_operand_decoded(0, Operand::D8(imm))?;
-                    handler.on_op_8b_a_d8(op, imm)?;
-                    return Ok(());
-                } else {
-                    handler.on_opcode_decoded(Opcode::RST)?;
-                    handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
-                    handler.on_rst(opc & 0b00_111_000)?;
-                    return Ok(());
-                }
-            } else {
-                let handler_fn = H::UPPER_INSTRUCTIONS[opc as usize - 0xc0];
-                handler_fn(handler, words)
-            }
+    },
+    0xcc => {
+        handler.on_opcode_decoded(Opcode::CALL)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondZ)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_call_z(addr)
+    },
+    0xcd => {
+        handler.on_opcode_decoded(Opcode::CALL)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::D16(addr))?;
+        handler.on_call_unconditional(addr)
+    },
+    0xce => {
+        handler.on_opcode_decoded(Opcode::ADC)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::ADC, imm)
+    },
+    0xcf => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xd0
+    0xd0 => {
+        handler.on_opcode_decoded(Opcode::RET)?;
+        handler.on_operand_decoded(0, Operand::CondNC)?;
+        handler.on_ret_nc()
+    },
+    0xd1 => {
+        handler.on_opcode_decoded(Opcode::POP)?;
+        handler.on_operand_decoded(0, Operand::DE)?;
+        handler.on_pop_de()
+    },
+    0xd2 => {
+        handler.on_opcode_decoded(Opcode::JP)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondNC)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_jp_nc(addr)
+    },
+    0xd3 => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xd4 => {
+        handler.on_opcode_decoded(Opcode::CALL)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondNC)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_call_nc(addr)
+    },
+    0xd5 => {
+        handler.on_opcode_decoded(Opcode::PUSH)?;
+        handler.on_operand_decoded(0, Operand::DE)?;
+        handler.on_push_de()
+    },
+    0xd6 => {
+        handler.on_opcode_decoded(Opcode::SUB)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::SUB, imm)
+    },
+    0xd7 => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xd8
+    0xd8 => {
+        handler.on_opcode_decoded(Opcode::RET)?;
+        handler.on_operand_decoded(0, Operand::CondC)?;
+        handler.on_ret_c()
+    },
+    0xd9 => {
+        handler.on_opcode_decoded(Opcode::RETI)?;
+        handler.on_reti()
+    },
+    0xda => {
+        handler.on_opcode_decoded(Opcode::JP)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondC)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_jp_c(addr)
+    },
+    0xdb => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xdc => {
+        handler.on_opcode_decoded(Opcode::CALL)?;
+        let addr = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::CondC)?;
+        handler.on_operand_decoded(1, Operand::D16(addr))?;
+        handler.on_call_c(addr)
+    },
+    0xdd => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xde => {
+        handler.on_opcode_decoded(Opcode::SBC)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::SBC, imm)
+    },
+    0xdf => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xe0
+    0xe0 => {
+        handler.on_opcode_decoded(Opcode::LDH)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::DerefHighD8(imm))?;
+        handler.on_operand_decoded(1, Operand::A)?;
+        handler.on_ldh_deref_high_8b_a(imm)
+    },
+    0xe1 => {
+        handler.on_opcode_decoded(Opcode::POP)?;
+        handler.on_operand_decoded(0, Operand::HL)?;
+        handler.on_pop_hl()
+    },
+    0xe2 => {
+        handler.on_opcode_decoded(Opcode::LDH)?;
+        handler.on_operand_decoded(0, Operand::DerefHighC)?;
+        handler.on_operand_decoded(1, Operand::A)?;
+        handler.on_ldh_deref_high_c_a()
+    },
+    0xe3 => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xe4 => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xe5 => {
+        handler.on_opcode_decoded(Opcode::PUSH)?;
+        handler.on_operand_decoded(0, Operand::HL)?;
+        handler.on_push_hl()
+    },
+    0xe6 => {
+        handler.on_opcode_decoded(Opcode::AND)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::AND, imm)
+    },
+    0xe7 => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xe8
+    0xe8 => {
+        handler.on_opcode_decoded(Opcode::ADD)?;
+        let imm = handler.read_u8(words)? as i8;
+        handler.on_operand_decoded(0, Operand::SP)?;
+        handler.on_operand_decoded(1, Operand::I8(imm))?;
+        handler.on_add_sp_i8(imm)
+    },
+    0xe9 => {
+        handler.on_opcode_decoded(Opcode::JP)?;
+        handler.on_operand_decoded(0, Operand::HL)?;
+        handler.on_jp_hl()
+    },
+    0xea => {
+        handler.on_opcode_decoded(Opcode::LD)?;
+        let imm = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::A16(imm))?;
+        handler.on_operand_decoded(1, Operand::A)?;
+        handler.on_ld_8b_deref_addr_a(imm)
+    },
+    0xeb => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xec => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xed => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xee => {
+        handler.on_opcode_decoded(Opcode::XOR)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::XOR, imm)
+    },
+    0xef => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xf0
+    0xf0 => {
+        handler.on_opcode_decoded(Opcode::LDH)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::A)?;
+        handler.on_operand_decoded(1, Operand::DerefHighD8(imm))?;
+        handler.on_ldh_a_deref_high_8b(imm)
+    },
+    0xf1 => {
+        handler.on_opcode_decoded(Opcode::POP)?;
+        handler.on_operand_decoded(0, Operand::AF)?;
+        handler.on_pop_af()
+    },
+    0xf2 => {
+        handler.on_opcode_decoded(Opcode::LDH)?;
+        handler.on_operand_decoded(0, Operand::A)?;
+        handler.on_ldh_a_deref_high_c() },
+    0xf3 => {
+        handler.on_opcode_decoded(Opcode::DI)?;
+        handler.on_di()
+    },
+    0xf4 => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xf5 => {
+        handler.on_opcode_decoded(Opcode::PUSH)?;
+        handler.on_operand_decoded(0, Operand::AF)?;
+        handler.on_push_af()
+    },
+    0xf6 => {
+        handler.on_opcode_decoded(Opcode::OR)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::OR, imm)
+    },
+    0xf7 => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+    // 0xf8
+    0xf8 => {
+        handler.on_opcode_decoded(Opcode::LD)?;
+        let imm = handler.read_u8(words)? as i8;
+        handler.on_operand_decoded(0, Operand::HL)?;
+        handler.on_operand_decoded(1, Operand::SPWithOffset(imm))?;
+        handler.on_ld_hl_sp_offset(imm)
+    },
+    0xf9 => {
+        handler.on_opcode_decoded(Opcode::LD)?;
+        handler.on_operand_decoded(0, Operand::SP)?;
+        handler.on_operand_decoded(1, Operand::HL)?;
+        handler.on_ld_sp_hl()
+    },
+    0xfa => {
+        handler.on_opcode_decoded(Opcode::LD)?;
+        let imm = handler.read_u16(words)?;
+        handler.on_operand_decoded(0, Operand::A)?;
+        handler.on_operand_decoded(1, Operand::A16(imm))?;
+        handler.on_ld_a_8b_deref_addr(imm)
+    },
+    0xfb => {
+        handler.on_opcode_decoded(Opcode::EI)?;
+        handler.on_ei()
+    },
+    0xfc => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xfd => {
+        Err(StandardDecodeError::InvalidOpcode)
+    },
+    0xfe => {
+        handler.on_opcode_decoded(Opcode::CP)?;
+        let imm = handler.read_u8(words)?;
+        handler.on_operand_decoded(0, Operand::D8(imm))?;
+        handler.on_op_8b_a_d8(Op8bAOp::CP, imm)
+    },
+    0xff => {
+        handler.on_opcode_decoded(Opcode::RST)?;
+        handler.on_operand_decoded(0, Operand::D8(opc & 0b00_111_000))?;
+        handler.on_rst(opc & 0b00_111_000)
+    },
+            _ => { unsafe { std::hint::unreachable_unchecked() } },
         }
     }
 }
